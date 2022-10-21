@@ -33,6 +33,11 @@ st.markdown("""
                     height: 3px;
                     width: 1px;
                 }
+                iframe {
+                    border: none;
+                    padding: 0px;
+                    margin-top: 23px;
+                    }
         </style>
         """, unsafe_allow_html=True)
 #Title of the Website
