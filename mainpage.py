@@ -97,11 +97,7 @@ if selected == "Generate":
   f_nyquist = 2*get_max_freq(genratedsignal,time)
   sampling_rate=st.slider(label="Sample Rate: Nyquist frequence=" + str(round(f_nyquist , 4)),min_value=0.25,max_value=10.0,step=0.25,value=2.0)
   amplitude_time_samples = take_samples(time,genratedsignal,sampling_rate)
-  """
-  T = 1/sample_freq
-  n = np.arange(0,1/T)
-  samples=amplitude * np.sin(2 * np.pi *freq* n*T)
-  """
+
   fig.add_trace(go.Scatter( x=amplitude_time_samples[0], y=amplitude_time_samples[1], mode='markers'))
   st.plotly_chart(fig, use_container_width=True)
   fig=fig.update_layout(showlegend=True)
