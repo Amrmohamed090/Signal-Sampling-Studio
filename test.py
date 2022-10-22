@@ -99,8 +99,7 @@ if main_menu == "Add Signal":
                     
             sampling_rate=st.slider(label="R * fmax" ,min_value=0.25,max_value=10.0,step=0.25,value=2.0)
             signal_name = st.text_input("Name", value = "signal "+str(st.session_state["count"]))
-            save = st.button("save")
-           
+            save = st.button("save")   
            #start save action
             if save:        
                 if signal_name not in st.session_state["taps_names"]:
@@ -110,8 +109,7 @@ if main_menu == "Add Signal":
                     if selected == "Generate Signal":
                         st.session_state['taps'].append(tap(magnitude = generatedsignal,time=time_generated ,amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr,sampling_rate = sampling_rate, label=signal_name))
                     if selected == "Upload Signal":
-                        st.session_state['taps'].append(tap(magnitude=np.array(data[data.columns[1]]), time = np.array(data[data.columns[0]]),noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate, label=signal_name))
-                        
+                        st.session_state['taps'].append(tap(magnitude=np.array(data[data.columns[1]]), time = np.array(data[data.columns[0]]),noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate, label=signal_name))                 
             #end save action            
                         
 
@@ -129,7 +127,7 @@ if main_menu == "Add Signal":
 
 
 #draw starts      
-def draw_signal(f_magnitude=[], f_time=[],initialize=False):
+def draw_signal(f_magnitude=[], f_time=[],initialize=False , draw = True):
     if initialize:
         fig = go.Figure()
         fig.add_trace(go.Line( x=st.session_state["time_init"], y=st.session_state["magnitude_init"]))
@@ -152,15 +150,14 @@ def draw_signal(f_magnitude=[], f_time=[],initialize=False):
     fig.add_trace(go.Line( x=f_time, y=f_magnitude))
     amplitude_time_samples = take_samples(f_time ,f_magnitude ,sampling_rate)
     fig.add_trace(go.Scatter( x=amplitude_time_samples[0], y=amplitude_time_samples[1], mode='markers'))
-
-    
-    
     magnitude_recovered = sinc_interpolation(amplitude_time_samples[1], amplitude_time_samples[0], time_space)
-
-    fig2 = go.Figure()
-    fig2.add_trace(go.Line( x=time_space, y=magnitude_recovered))
-    st.plotly_chart(fig, use_container_width=True)
-    st.plotly_chart(fig2, use_container_width=True)
+    if draw:
+        fig2 = go.Figure()
+        fig2.add_trace(go.Line( x=time_space, y=magnitude_recovered))
+        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig2, use_container_width=True)
+    else:
+        return (time_space,magnitude_recovered)
 #draw ends
 
 
@@ -203,6 +200,14 @@ if main_menu == "Choose Signal" and st.session_state["taps_names"]:
         
         signal_name = st.text_input("Name", value = "signal"+str(st.session_state["count"]))
         save = st.button("save")
+        output = draw_signal(f_magnitude=magnitude, f_time=time, draw = False)
+        df = pd.DataFrame({"time":output[0],"magnitude":output[1]})
+        st.download_button(
+        label="Download data as CSV",
+        data=convert_df_to_csv(df),
+        file_name='your_signal.csv',
+        mime='text/csv',
+        )
         if save:
             if signal_name not in st.session_state.taps_names:
                 if curr_tap.source == "generate":
@@ -243,14 +248,14 @@ if main_menu == "Add Signal":
         
         generated_signals = []
         #filtering only the signals that we generated, not the ones that has been uploaded
-        for tap in st.session_state['taps']:
-            if tap.source == "generate":
-                generated_signals.append(tap)
+        for tp in st.session_state['taps']:
+            if tp.source == "generate":
+                generated_signals.append(tp)
         
         if generated_signals :
             generated_signals_names = []
-            for tap in generated_signals:
-                generated_signals_names.append(tap.label)
+            for tp in generated_signals:
+                generated_signals_names.append(tp.label)
                     
             with st.sidebar:        
                 chosen_list = st.multiselect("Added signals",generated_signals_names)
@@ -261,19 +266,30 @@ if main_menu == "Add Signal":
                 for i in range(len(st.session_state['taps_names'])):
                     if label == st.session_state['taps_names'][i]:
                         taps.append(st.session_state['taps'][i])
-            sum=list()
+            
             fig1 = go.Figure()
-            for tap in taps:
-                fig1.add_trace(go.Line( x= tap.time, y= tap.magnitude))
-                if not len(sum):
-                    sum = tap.magnitude
-                else:
-                    sum += tap.magnitude
-            x= np.arange(0,1,1/1000) 
-            fig2 = go.Figure()
-            fig2.add_trace(go.Line( x=x, y=sum))
+            for tp in taps:
+                fig1.add_trace(go.Line( x= tp.time, y= tp.magnitude))
             st.plotly_chart(fig1, use_container_width=True)
+
+
+         
+
+         
+            sum_y=list()
+            for tp in taps:
+                if not len(sum_y):
+                    sum_y = tp.magnitude
+                    
+                else:
+                    sum_y += tp.magnitude
+            time_x= np.arange(0,1,1/1000) 
+            
+            
+            df_compose = pd.DataFrame({"time":time_x, "magnitude":sum})
+            fig2 = ff.line(df_compose, x="time", y="magnitude")
             st.plotly_chart(fig2, use_container_width=True)
+           
          
                     
         

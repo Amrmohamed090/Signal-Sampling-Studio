@@ -31,7 +31,7 @@ def get_max_freq(magnitude=[],time=[]):
     fft_frequencies = np.fft.fftfreq(n_samples, sample_period)
     fft_clean_frequencies_array = []
     for i in range(len(fft_frequencies)):
-        if fft_magnitudes[i] > 0.001:
+        if fft_magnitudes[i] > 100:
             fft_clean_frequencies_array.append(fft_frequencies[i])
     max_freq = max(fft_clean_frequencies_array)
     return max_freq
@@ -87,5 +87,5 @@ class tap:
         self.amplitude = amplitude
         self.frequency = frequency
 
-def convert_df(df):
-    return df.to_csv().encode('utf-8')
+def convert_df_to_csv(df):
+    return df.to_csv(index=False).encode('utf-8')
