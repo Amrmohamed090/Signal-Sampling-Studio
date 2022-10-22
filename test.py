@@ -20,9 +20,7 @@ if 'time_init' not in st.session_state:
     st.session_state['magnitude_init'] = [0,0]
     st.session_state['taps'] = list()
     st.session_state['taps_names'] = list()
-    st.session_state['curr_tap'] = list()
-    st.session_state['time_curr'] = 0
-    st.session_state['magnitude_curr'] = 0
+    st.session_state['curr_tap'] = None
     st.session_state['count'] = 1
     st.session_state['snr_state'] = True
     st.session_state['save_flag'] = False
@@ -94,10 +92,11 @@ if main_menu == "Add Signal":
                         st.session_state["snr_state"] = False
                     snr = st.number_input("SNR", min_value=0, step=1,value=30,disabled=st.session_state["snr_state"])
                     
-            sampling_rate=st.slider(label="Sample Rate" ,min_value=0.25,max_value=10.0,step=0.25,value=2.0)
-            signal_name = st.text_input("Name", value = "signal"+str(st.session_state["count"]))
+            sampling_rate=st.slider(label="R * fmax" ,min_value=0.25,max_value=10.0,step=0.25,value=2.0)
+            signal_name = st.text_input("Name", value = "signal "+str(st.session_state["count"]))
             save = st.button("save")
            
+           #start save action
             if save:        
                 if signal_name not in st.session_state["taps_names"]:
                     
@@ -108,6 +107,7 @@ if main_menu == "Add Signal":
                     if selected == "Upload Signal":
                         st.session_state['taps'].append(tap(magnitude=np.array(data[data.columns[1]]), time = np.array(data[data.columns[0]]),noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate))
                         
+            #end save action            
                         
 
 
@@ -149,7 +149,7 @@ def draw_signal(f_magnitude=[], f_time=[],initialize=False):
     fig.add_trace(go.Scatter( x=amplitude_time_samples[0], y=amplitude_time_samples[1], mode='markers'))
 
     
-    print((amplitude_time_samples[1],"$$$$$$", amplitude_time_samples[0],"$$$$$$",  time_space))
+    
     magnitude_recovered = sinc_interpolation(amplitude_time_samples[1], amplitude_time_samples[0], time_space)
 
     fig2 = go.Figure()
@@ -178,13 +178,14 @@ if main_menu == "Choose Signal" and st.session_state["taps_names"]:
         if noise_check_box:
             st.session_state["snr_state"] = False
         snr = st.number_input("SNR", min_value=0, step=1,value=curr_tap.snr,disabled=st.session_state["snr_state"])
-        sampling_rate=st.slider(label="Sample Rate" ,min_value=0.25,max_value=10.0,step=0.25,value=curr_tap.sampling_rate)
+        sampling_rate=st.slider(label="R * fmax" ,min_value=0.25,max_value=10.0,step=0.25,value=float(curr_tap.sampling_rate))
         signal_name = st.text_input("Name", value = "signal"+str(st.session_state["count"]))
         
 
         if curr_tap.source == "csv":
-            time = np.array(curr_tap.time)
-            magnitude = np.array(curr_tap.magnitude)
+            time = curr_tap.time
+            magnitude = curr_tap.magnitude
+            
             
 
         if curr_tap.source == "generate":
@@ -196,10 +197,10 @@ if main_menu == "Choose Signal" and st.session_state["taps_names"]:
             #adding noise to the generated signal
         save = st.button("save")
         if save:
-            if selected == "Generate Signal":
-                    st.session_state['taps'].append(tap(amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr,sampling_rate = sampling_rate))
-            if selected == "Upload Signal":
-                    st.session_state['taps'].append(tap(magnitude=np.array(data[data.columns[1]]), time = np.array(data[data.columns[0]]),noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate))
+            if curr_tap.source == "generate":
+                    curr_tap.set_attributes(magnitude=magnitude,time=time,amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr,sampling_rate = sampling_rate)
+            if curr_tap.source == "csv":
+                    curr_tap.set_attributes(time = curr_tap.time,magnitude = curr_tap.magnitude,noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate)
 
             
     

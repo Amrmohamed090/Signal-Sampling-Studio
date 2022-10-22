@@ -88,7 +88,7 @@ class tap:
         self.magnitude = magnitude
         self.time = time
         self.sampling_rate = sampling_rate
-        self.noise_checkbox = noise_check_box
+        self.noise_check_box = noise_check_box
         self.snr = snr
         self.amplitude = amplitude
         self.frequency = frequency
