@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, magnitude_spectrum
+from requests import session
 import streamlit as st
 import pandas as pd
 import plotly.express as ff
@@ -24,6 +25,8 @@ if 'time_init' not in st.session_state:
     st.session_state['count'] = 1
     st.session_state['snr_state'] = True
     st.session_state['save_flag'] = False
+    st.session_state['compose_list'] = list()
+    st.session_state['composed_signal'] = np.sin(0)
 
     
     
@@ -72,7 +75,7 @@ if main_menu == "Add Signal":
         
         selected = option_menu(
             menu_title = "Options",
-            options = ["Upload Signal", "Generate Signal"],
+            options = ["Upload Signal", "Generate Signal", "Compose Signals"],
             icons=["bar-chart-line","activity"],
             orientation=HORIZONTAL
         )
@@ -84,6 +87,8 @@ if main_menu == "Add Signal":
         if selected == "Generate Signal":
             amplitude=st.number_input('Enter Amplitude: ', step = 1, min_value=0, value=5)
             freq=st.number_input('Enter Frequence: ', step=1, min_value=0, value=20)
+            time_generated = np.arange(0, 1, 1/1000)
+            generatedsignal = amplitude * np.sin(2 * np.pi * freq * time_generated)
         
         if selected == "Generate Signal" or (selected == "Upload Signal" and file is not None) :
             with st.container():
@@ -103,9 +108,9 @@ if main_menu == "Add Signal":
                     st.session_state['taps_names'].append(signal_name)
                     st.session_state['count'] +=1
                     if selected == "Generate Signal":
-                        st.session_state['taps'].append(tap(amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr,sampling_rate = sampling_rate))
+                        st.session_state['taps'].append(tap(magnitude = generatedsignal,time=time_generated ,amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr,sampling_rate = sampling_rate, label=signal_name))
                     if selected == "Upload Signal":
-                        st.session_state['taps'].append(tap(magnitude=np.array(data[data.columns[1]]), time = np.array(data[data.columns[0]]),noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate))
+                        st.session_state['taps'].append(tap(magnitude=np.array(data[data.columns[1]]), time = np.array(data[data.columns[0]]),noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate, label=signal_name))
                         
             #end save action            
                         
@@ -179,7 +184,7 @@ if main_menu == "Choose Signal" and st.session_state["taps_names"]:
             st.session_state["snr_state"] = False
         snr = st.number_input("SNR", min_value=0, step=1,value=curr_tap.snr,disabled=st.session_state["snr_state"])
         sampling_rate=st.slider(label="R * fmax" ,min_value=0.25,max_value=10.0,step=0.25,value=float(curr_tap.sampling_rate))
-        signal_name = st.text_input("Name", value = "signal"+str(st.session_state["count"]))
+        
         
 
         if curr_tap.source == "csv":
@@ -195,14 +200,18 @@ if main_menu == "Choose Signal" and st.session_state["taps_names"]:
             magnitude = amplitude * np.sin(2 * np.pi * freq * time)
             
             #adding noise to the generated signal
+        
+        signal_name = st.text_input("Name", value = "signal"+str(st.session_state["count"]))
         save = st.button("save")
         if save:
-            if curr_tap.source == "generate":
-                    curr_tap.set_attributes(magnitude=magnitude,time=time,amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr,sampling_rate = sampling_rate)
-            if curr_tap.source == "csv":
-                    curr_tap.set_attributes(time = curr_tap.time,magnitude = curr_tap.magnitude,noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate)
-
-            
+            if signal_name not in st.session_state.taps_names:
+                if curr_tap.source == "generate":
+                        curr_tap.set_attributes(label=signal_name, magnitude=magnitude,time=time,amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr,sampling_rate = sampling_rate)
+                if curr_tap.source == "csv":
+                        curr_tap.set_attributes(time = curr_tap.time, label=signal_name, magnitude = curr_tap.magnitude,noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate)
+        
+            else:
+                st.markdown("this name exists!! please try another name")
     
     draw_signal(magnitude,time)
         
@@ -226,13 +235,58 @@ if main_menu == "Add Signal":
     
 
     if selected == "Generate Signal":
-
-        time = np.arange(0, 1, 1/1000)
-        generatedsignal = amplitude * np.sin(2 * np.pi * freq * time)
-
+        
         #adding noise to the generated signal
-
-        draw_signal(generatedsignal,time)
+        draw_signal(generatedsignal,time_generated)
     
+    if selected == "Compose Signals":
+        
+        generated_signals = []
+        #filtering only the signals that we generated, not the ones that has been uploaded
+        for tap in st.session_state['taps']:
+            if tap.source == "generate":
+                generated_signals.append(tap)
+        
+        if generated_signals :
+            generated_signals_names = []
+            for tap in generated_signals:
+                generated_signals_names.append(tap.label)
+                    
+            with st.sidebar:        
+                chosen_list = st.multiselect("Added signals",generated_signals_names)
+            
+            taps = []
+
+            for label in chosen_list:
+                for i in range(len(st.session_state['taps_names'])):
+                    if label == st.session_state['taps_names'][i]:
+                        taps.append(st.session_state['taps'][i])
+            sum=list()
+            fig1 = go.Figure()
+            for tap in taps:
+                fig1.add_trace(go.Line( x= tap.time, y= tap.magnitude))
+                if not len(sum):
+                    sum = tap.magnitude
+                else:
+                    sum += tap.magnitude
+            x= np.arange(0,1,1/1000) 
+            fig2 = go.Figure()
+            fig2.add_trace(go.Line( x=x, y=sum))
+            st.plotly_chart(fig1, use_container_width=True)
+            st.plotly_chart(fig2, use_container_width=True)
+         
+                    
+        
+        else:
+            draw_signal(initialize=True)
+           
+
+
+
      
 
+
+    
+    
+    
+    

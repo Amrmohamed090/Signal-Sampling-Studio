@@ -58,13 +58,7 @@ def take_samples(time, signal_magnitude, rate):
     return (sample_t  ,  sample_amplitude)
 
 def sinc_interpolation(input_magnitude, input_time, original_time):
-    '''Whittaker Shannon interpolation formula linked here:
-      https://en.wikipedia.org/wiki/Whittaker%E2%80%93Shannon_interpolation_formula '''
-    
-  
     T = input_time[1] - input_time[0]
-
-    # the equation
     sincM = np.tile(original_time, (len(input_time), 1)) - \
         np.tile(input_time[:, np.newaxis], (1, len(original_time)))
     output_magnitude = np.dot(input_magnitude, np.sinc(sincM/T))
