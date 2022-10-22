@@ -60,13 +60,9 @@ def take_samples(time, signal_magnitude, rate):
 def sinc_interpolation(input_magnitude, input_time, original_time):
     '''Whittaker Shannon interpolation formula linked here:
       https://en.wikipedia.org/wiki/Whittaker%E2%80%93Shannon_interpolation_formula '''
-
-    if len(input_magnitude) != len(input_time):
-        print('not same')
-
-    # Find the period
-    if len(input_time) != 0:
-        T = input_time[1] - input_time[0]
+    
+  
+    T = input_time[1] - input_time[0]
 
     # the equation
     sincM = np.tile(original_time, (len(input_time), 1)) - \
@@ -75,24 +71,24 @@ def sinc_interpolation(input_magnitude, input_time, original_time):
     return output_magnitude
 
 class tap:
-    def __init__(self, magnitude=None, time=None, label=None, source = "generate" , amplitude = 5,frequency=20 ,sample_rate=2, noise_checkbox = False, snr=1000):
+    def __init__(self, magnitude=None, time=None, label=None, source = "generate" , amplitude = 5,frequency=20 ,sampling_rate=2, noise_check_box = False, snr=1000):
         self.label = label
         self.source = source
         self.magnitude = magnitude
         self.time = time
-        self.sample_rate = sample_rate
-        self.noise_checkbox = noise_checkbox
+        self.sampling_rate = sampling_rate
+        self.noise_check_box = noise_check_box
         self.snr = snr
         self.amplitude = amplitude
         self.frequency = frequency
 
-    def set_attributes(self, magnitude=None, time=None, label=None, source = "generate" , amplitude = 5,frequency=20 ,sample_rate=2, noise_checkbox = False, snr=1000):
+    def set_attributes(self, magnitude=None, time=None, label=None, source = "generate" , amplitude = 5,frequency=20 ,sampling_rate=2, noise_check_box = False, snr=1000):
         self.label = label
         self.source = source
         self.magnitude = magnitude
         self.time = time
-        self.sample_rate = sample_rate
-        self.noise_checkbox = noise_checkbox
+        self.sampling_rate = sampling_rate
+        self.noise_checkbox = noise_check_box
         self.snr = snr
         self.amplitude = amplitude
         self.frequency = frequency

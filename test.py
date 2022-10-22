@@ -11,11 +11,24 @@ from tkinter import HORIZONTAL
 from resources import *
 
 
+
+
 st.set_page_config(layout="wide")
 
-if 'taps' not in st.session_state:
+if 'time_init' not in st.session_state:
+    st.session_state['time_init'] = [0,0]
+    st.session_state['magnitude_init'] = [0,0]
     st.session_state['taps'] = list()
-    st.session_state['current_tap'] = 0
+    st.session_state['taps_names'] = list()
+    st.session_state['curr_tap'] = list()
+    st.session_state['time_curr'] = 0
+    st.session_state['magnitude_curr'] = 0
+    st.session_state['count'] = 1
+    st.session_state['snr_state'] = True
+    st.session_state['save_flag'] = False
+
+    
+    
 
 # Remove whitespace from the top of the page and sidebar
 st.markdown("""
@@ -48,87 +61,177 @@ st.markdown("""
 #Title of the Website
 #st.markdown("<h1 style='text-align: center; color: white;'>Sampling Studio</h1>", unsafe_allow_html=True)
 #SideBar Menu
+
 with st.sidebar:
-    selected = option_menu(
-        menu_title = "Options",
-        options = ["Upload New Signal", "Generate New Signal"],
-        icons=["bar-chart-line","activity"],
-        orientation=HORIZONTAL
+    main_menu = option_menu(
+            menu_title = "Main Menu",
+            options = ["Add Signal", "Choose Signal"] ,
+            icons=["bar-chart-line","activity"],
+            orientation=HORIZONTAL
     )
-    if selected == "Upload New Signal":
-        file = st.file_uploader("Upload Signal", type= ['csv'])
-            
-            
-    if selected == "Generate New Signal":
-        amplitude=st.number_input('Enter Amplitude: ', step = 1, min_value=0, value=5)
-        freq=st.number_input('Enter Frequence: ', step=1, min_value=0, value=20)
-    
-    if selected == "Generate New Signal" or (selected == "Upload New Signal" and file is not None) :
-        with st.container():
-                noise_check_box = st.checkbox("add noise")
-                if noise_check_box:
-                    snr = st.number_input("SNR", min_value=0, step=1,value=30)
-        sampling_rate=st.slider(label="Sample Rate" ,min_value=0.25,max_value=10.0,step=0.25,value=2.0)
-        save = st.button("save")
-
-
-
-
-
+if main_menu == "Add Signal":
+    with st.sidebar:
         
-def draw_signal(magnitude=[], time=[],initialize=False):
+        selected = option_menu(
+            menu_title = "Options",
+            options = ["Upload Signal", "Generate Signal"],
+            icons=["bar-chart-line","activity"],
+            orientation=HORIZONTAL
+        )
+        if selected == "Upload Signal":
+            file = st.file_uploader("Upload Signal", type= ['csv'])
+            if file is not None:
+                data = pd.read_csv(file)    
+                
+        if selected == "Generate Signal":
+            amplitude=st.number_input('Enter Amplitude: ', step = 1, min_value=0, value=5)
+            freq=st.number_input('Enter Frequence: ', step=1, min_value=0, value=20)
+        
+        if selected == "Generate Signal" or (selected == "Upload Signal" and file is not None) :
+            with st.container():
+                    noise_check_box = st.checkbox("add noise")
+                    if noise_check_box:
+                        st.session_state["snr_state"] = False
+                    snr = st.number_input("SNR", min_value=0, step=1,value=30,disabled=st.session_state["snr_state"])
+                    
+            sampling_rate=st.slider(label="Sample Rate" ,min_value=0.25,max_value=10.0,step=0.25,value=2.0)
+            signal_name = st.text_input("Name", value = "signal"+str(st.session_state["count"]))
+            save = st.button("save")
+           
+            if save:        
+                if signal_name not in st.session_state["taps_names"]:
+                    
+                    st.session_state['taps_names'].append(signal_name)
+                    st.session_state['count'] +=1
+                    if selected == "Generate Signal":
+                        st.session_state['taps'].append(tap(amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr,sampling_rate = sampling_rate))
+                    if selected == "Upload Signal":
+                        st.session_state['taps'].append(tap(magnitude=np.array(data[data.columns[1]]), time = np.array(data[data.columns[0]]),noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate))
+                        
+                        
+
+
+                else:
+                    st.markdown("this name exist, please change the name")
+
+
+                    
+            
+            
+
+
+
+
+
+#draw starts      
+def draw_signal(f_magnitude=[], f_time=[],initialize=False):
     if initialize:
         fig = go.Figure()
-        fig.add_trace(go.Line( x=[0,0,0], y=[0,0,0]))
+        fig.add_trace(go.Line( x=st.session_state["time_init"], y=st.session_state["magnitude_init"]))
         st.plotly_chart(fig, use_container_width=True)
         fig2 = go.Figure()
-        fig2.add_trace(go.Line( x=[0,0,0], y=[0,0,0]))
+        fig2.add_trace(go.Line(  x=st.session_state["time_init"], y=st.session_state["magnitude_init"]))
         st.plotly_chart(fig2, use_container_width=True)
         return
-    magnitude = np.array(magnitude)
-    time = np.array(time)
+    f_magnitude = np.array(f_magnitude)
+    f_time = np.array(f_time)
     fig = go.Figure()
-    time_space = np.linspace(time[0], time[-1], 1000)
+    time_space = np.linspace(f_time[0], f_time[-1], 1000)
     
     if noise_check_box:   
-        magnitude = add_noise(snr, magnitude)
+        f_magnitude = add_noise(snr, f_magnitude)
 
-    f_nyquist = 2*get_max_freq(magnitude,time)
+    f_nyquist = 2*get_max_freq(f_magnitude,f_time)
     with st.sidebar:
         st.markdown("F nyquist = " + str(round(f_nyquist,5)))
-    fig.add_trace(go.Line( x=time, y=magnitude))
-    amplitude_time_samples = take_samples(time ,magnitude ,sampling_rate)
+    fig.add_trace(go.Line( x=f_time, y=f_magnitude))
+    amplitude_time_samples = take_samples(f_time ,f_magnitude ,sampling_rate)
     fig.add_trace(go.Scatter( x=amplitude_time_samples[0], y=amplitude_time_samples[1], mode='markers'))
 
-    st.plotly_chart(fig, use_container_width=True)
-
-    magnitude_revovered = sinc_interpolation(amplitude_time_samples[1], amplitude_time_samples[0], time_space)
+    
+    print((amplitude_time_samples[1],"$$$$$$", amplitude_time_samples[0],"$$$$$$",  time_space))
+    magnitude_recovered = sinc_interpolation(amplitude_time_samples[1], amplitude_time_samples[0], time_space)
 
     fig2 = go.Figure()
-    fig2.add_trace(go.Line( x=time_space, y=magnitude_revovered))
+    fig2.add_trace(go.Line( x=time_space, y=magnitude_recovered))
+    st.plotly_chart(fig, use_container_width=True)
     st.plotly_chart(fig2, use_container_width=True)
+#draw ends
 
 
-if selected == "Upload New Signal":
+if main_menu == "Choose Signal" and st.session_state["taps_names"]:
+    with st.sidebar:
+        selected = option_menu(
+        menu_title = "Signals",
+        options =st.session_state["taps_names"],
+        icons=["activity"]
+        )
+    for i in range(len(st.session_state["taps_names"])):
+        if selected == st.session_state["taps_names"][i]:
+            st.session_state['curr_tap'] = i
+            break
+    curr_tap = st.session_state['taps'][st.session_state['curr_tap']]
+    
+    with st.sidebar:
+        
+        noise_check_box = st.checkbox("add noise", value = curr_tap.noise_check_box)
+        if noise_check_box:
+            st.session_state["snr_state"] = False
+        snr = st.number_input("SNR", min_value=0, step=1,value=curr_tap.snr,disabled=st.session_state["snr_state"])
+        sampling_rate=st.slider(label="Sample Rate" ,min_value=0.25,max_value=10.0,step=0.25,value=curr_tap.sampling_rate)
+        signal_name = st.text_input("Name", value = "signal"+str(st.session_state["count"]))
+        
 
-    if file is None:
-        draw_signal(initialize=True)
+        if curr_tap.source == "csv":
+            time = np.array(curr_tap.time)
+            magnitude = np.array(curr_tap.magnitude)
+            
+
+        if curr_tap.source == "generate":
+            amplitude=st.number_input('Enter Amplitude: ', step = 1, min_value=0, value=curr_tap.amplitude)
+            freq=st.number_input('Enter Frequence: ', step=1, min_value=0, value=curr_tap.frequency)
+            time = np.arange(0, 1, 1/1000)
+            magnitude = amplitude * np.sin(2 * np.pi * freq * time)
+            
+            #adding noise to the generated signal
+        save = st.button("save")
+        if save:
+            if selected == "Generate Signal":
+                    st.session_state['taps'].append(tap(amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr,sampling_rate = sampling_rate))
+            if selected == "Upload Signal":
+                    st.session_state['taps'].append(tap(magnitude=np.array(data[data.columns[1]]), time = np.array(data[data.columns[0]]),noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate))
+
+            
+    
+    draw_signal(magnitude,time)
+        
+            
 
 
-    if file is not None:
-        data = pd.read_csv(file)
-        draw_signal(data[data.columns[1]],data[data.columns[0]])
 
-   
 
-if selected == "Generate New Signal":
 
-    time = np.arange(0, 1, 1/1000)
-    generatedsignal = amplitude * np.sin(2 * np.pi * freq * time)
+if main_menu == "Add Signal":
+    if selected == "Upload Signal":
 
-    #adding noise to the generated signal
+        if file is None:
+            draw_signal(initialize=True)
 
-    draw_signal(generatedsignal,time)
+
+        if file is not None:
+            
+            draw_signal(data[data.columns[1]],data[data.columns[0]])
+
+    
+
+    if selected == "Generate Signal":
+
+        time = np.arange(0, 1, 1/1000)
+        generatedsignal = amplitude * np.sin(2 * np.pi * freq * time)
+
+        #adding noise to the generated signal
+
+        draw_signal(generatedsignal,time)
     
      
 
