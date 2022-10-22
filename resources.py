@@ -1,3 +1,4 @@
+
 import pandas as pd
 import numpy as np
 import math
@@ -53,8 +54,7 @@ def take_samples(time, signal_magnitude, rate):
 
     for v in sample_t:
         sample_amplitude.append(df.iloc[int(round(round_to_nearest(v, step),10)/step)]['Amplitude'])
-
-    #return time and magnitude
+        
     return (sample_t  ,  sample_amplitude)
 
 def sinc_interpolation(input_magnitude, input_time, original_time):
@@ -73,3 +73,29 @@ def sinc_interpolation(input_magnitude, input_time, original_time):
         np.tile(input_time[:, np.newaxis], (1, len(original_time)))
     output_magnitude = np.dot(input_magnitude, np.sinc(sincM/T))
     return output_magnitude
+
+class tap:
+    def __init__(self, magnitude=None, time=None, label=None, source = "generate" , amplitude = 5,frequency=20 ,sample_rate=2, noise_checkbox = False, snr=1000):
+        self.label = label
+        self.source = source
+        self.magnitude = magnitude
+        self.time = time
+        self.sample_rate = sample_rate
+        self.noise_checkbox = noise_checkbox
+        self.snr = snr
+        self.amplitude = amplitude
+        self.frequency = frequency
+
+    def set_attributes(self, magnitude=None, time=None, label=None, source = "generate" , amplitude = 5,frequency=20 ,sample_rate=2, noise_checkbox = False, snr=1000):
+        self.label = label
+        self.source = source
+        self.magnitude = magnitude
+        self.time = time
+        self.sample_rate = sample_rate
+        self.noise_checkbox = noise_checkbox
+        self.snr = snr
+        self.amplitude = amplitude
+        self.frequency = frequency
+
+def convert_df(df):
+    return df.to_csv().encode('utf-8')
