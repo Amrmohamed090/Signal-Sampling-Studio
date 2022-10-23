@@ -57,6 +57,21 @@ st.markdown("""
                     padding: 0px;
                     margin-top: 23px;
                     }
+                .css-1adrfps {
+                   background-color: rgb(240, 242, 246);
+                   background-attachment: fixed;
+                   flex-shrink: 0;
+                   height: calc(-2px + 100vh);
+                   top: 2px;
+                   overflow: auto;
+                   padding: 2rem .5rem;
+                   position: relative;
+                   transition: margin-left 300ms ease 0s, box-shadow 300ms ease 0s;
+                   width: 21rem;
+                   z-index: 1000021;
+                   margin-left: 0px;
+                }    
+
         </style>
         """, unsafe_allow_html=True)
 #Title of the Website
@@ -203,7 +218,7 @@ if main_menu == "Choose Signal" and st.session_state["taps_names"]:
         output = draw_signal(f_magnitude=magnitude, f_time=time, draw = False)
         df = pd.DataFrame({"time":output[0],"magnitude":output[1]})
         st.download_button(
-        label="Download data as CSV",
+        label="Download Signal as CSV",
         data=convert_df_to_csv(df),
         file_name='your_signal.csv',
         mime='text/csv',
@@ -275,18 +290,18 @@ if main_menu == "Add Signal":
 
          
 
-         
-            sum_y=list()
+            time_x= np.arange(0,1,1/1000)
+            sum_y=np.zeros(len(time_x))
             for tp in taps:
                 if not len(sum_y):
                     sum_y = tp.magnitude
                     
                 else:
                     sum_y += tp.magnitude
-            time_x= np.arange(0,1,1/1000) 
+             
             
             
-            df_compose = pd.DataFrame({"time":time_x, "magnitude":sum})
+            df_compose = pd.DataFrame({"time":time_x, "magnitude":sum_y})
             fig2 = ff.line(df_compose, x="time", y="magnitude")
             st.plotly_chart(fig2, use_container_width=True)
            
