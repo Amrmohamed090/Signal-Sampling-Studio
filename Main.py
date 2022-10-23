@@ -70,12 +70,13 @@ st.markdown("""
                    width: 21rem;
                    z-index: 1000021;
                    margin-left: 0px;
-                }    
+                }
+                    
 
         </style>
         """, unsafe_allow_html=True)
 #Title of the Website
-#st.markdown("<h1 style='text-align: center; color: white;'>Sampling Studio</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: black;'>Sampling Studio</h1>", unsafe_allow_html=True)
 #SideBar Menu
 
 with st.sidebar:
@@ -143,17 +144,23 @@ if main_menu == "Add Signal":
 
 #draw starts      
 def draw_signal(f_magnitude=[], f_time=[],initialize=False , draw = True):
+    st.write("Original Signal")
+    fig = go.Figure()
+    #layout = go.Layout(paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)')
+    fig2 = go.Figure()
+    
     if initialize:
-        fig = go.Figure()
+        
         fig.add_trace(go.Line( x=st.session_state["time_init"], y=st.session_state["magnitude_init"]))
         st.plotly_chart(fig, use_container_width=True)
-        fig2 = go.Figure()
+        
         fig2.add_trace(go.Line(  x=st.session_state["time_init"], y=st.session_state["magnitude_init"]))
+        st.write("Sampled Signal")
         st.plotly_chart(fig2, use_container_width=True)
         return
     f_magnitude = np.array(f_magnitude)
     f_time = np.array(f_time)
-    fig = go.Figure()
+    #fig = go.Figure()
     time_space = np.linspace(f_time[0], f_time[-1], 1000)
     
     if noise_check_box:   
@@ -167,9 +174,10 @@ def draw_signal(f_magnitude=[], f_time=[],initialize=False , draw = True):
     fig.add_trace(go.Scatter( x=amplitude_time_samples[0], y=amplitude_time_samples[1], mode='markers'))
     magnitude_recovered = sinc_interpolation(amplitude_time_samples[1], amplitude_time_samples[0], time_space)
     if draw:
-        fig2 = go.Figure()
+        #fig2 = go.Figure()
         fig2.add_trace(go.Line( x=time_space, y=magnitude_recovered))
         st.plotly_chart(fig, use_container_width=True)
+        st.write("Sampled Signal")
         st.plotly_chart(fig2, use_container_width=True)
     else:
         return (time_space,magnitude_recovered)
