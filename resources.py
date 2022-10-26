@@ -17,13 +17,6 @@ def add_noise(snr_dB, signal):
     noise_signal= signal+ noise
     return noise_signal
 
-def reconstruct(time):
-      sum=0
-      for i in range(-sample_freq, sample_freq, 1):
-          #signal=amplitude * np.sin(2 * np.pi *freq* i*T)
-          sum += genratedsignal*np.sinc((time- i*T)/T) 
-      return sum
-
 def get_max_freq(magnitude=[],time=[]):
     sample_period = time[1]-time[0]
     n_samples = len(time)
@@ -31,7 +24,7 @@ def get_max_freq(magnitude=[],time=[]):
     fft_frequencies = np.fft.fftfreq(n_samples, sample_period)
     fft_clean_frequencies_array = []
     for i in range(len(fft_frequencies)):
-        if fft_magnitudes[i] > 100:
+        if fft_magnitudes[i] ** 2 > 100:
             fft_clean_frequencies_array.append(fft_frequencies[i])
     max_freq = max(fft_clean_frequencies_array)
     return max_freq
@@ -54,6 +47,7 @@ def take_samples(time, signal_magnitude, rate):
 
     for v in sample_t:
         sample_amplitude.append(df.iloc[int(round(round_to_nearest(v, step),10)/step)]['Amplitude'])
+
         
     return (sample_t  ,  sample_amplitude)
 
