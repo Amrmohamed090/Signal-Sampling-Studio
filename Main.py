@@ -1,4 +1,5 @@
-
+from msilib.schema import Icon
+from turtle import fillcolor
 from requests import session
 import streamlit as st
 import pandas as pd
@@ -13,13 +14,12 @@ from resources import *
 
 
 
-st.set_page_config(layout="wide")
-#Title of the Website
-st.markdown("<h2 style='text-align:center; color: white;'>Sampling Studio</h2>", unsafe_allow_html=True)
+st.set_page_config(page_title = "Sampling Studio", layout="wide")
+
 #Upload file
 file = st.file_uploader("Upload Signal", type= ['csv'])
-#(18e3th9)remove gap in title, (hxt7ib)remove gap in sidebar, (x8wxsk) style upload button
-
+time_generated = np.arange(0, 1, 1/2000)
+fig = go.Figure()
 
 if 'time_init' not in st.session_state:
     st.session_state['time_init'] = [0,0]
@@ -31,140 +31,257 @@ if 'time_init' not in st.session_state:
     st.session_state['snr_state'] = True
     st.session_state['save_flag'] = False
     st.session_state['compose_list'] = list()
-    #st.session_state['composed_signal'] = np.sin(0)
     st.session_state['upload'] = False
     st.session_state['compose'] = False
+    st.session_state['table']=[]
+    st.session_state['freq_mag']=[]
     
-
+def max_freq():
+    if len(st.session_state["table"])==0:
+        maxfreq=0
+    else:
+        maxfreq=max(st.session_state["table"])
+    return maxfreq 
 #draw starts      
-def draw_signal(f_magnitude=[], f_time=[],initialize=False , draw = True):
-    fig = go.Figure()
-    
-    
+def draw_signal(f_magnitude=[], f_time=[],sampling_rate=1,initialize=False, draw = True):
 
     f_magnitude = np.array(f_magnitude)
     f_time = np.array(f_time)
-    time_space = np.linspace(f_time[0], f_time[-1], 2000)
-    
+    time_space = np.linspace(1/(get_max_freq(f_magnitude,f_time)*4), f_time[-1], 2000)
     if noise_check_box:   
         f_magnitude = add_noise(snr, f_magnitude)
 
-    f_nyquist = 2*get_max_freq(f_magnitude,f_time)
         
-    fig.add_trace(go.Line( x=f_time, y=f_magnitude,name="Original"))
+    if samplingFreq_checkBox:
+        sampling_rate=sampling_method
+    else:
+        sampling_rate=sampling_method*max_freq()
+
     amplitude_time_samples = take_samples(f_time ,f_magnitude ,sampling_rate)
-    fig.add_trace(go.Scatter( x=amplitude_time_samples[0], y=amplitude_time_samples[1],name="Samples", mode='markers'))
-    magnitude_recovered = sinc_interpolation(amplitude_time_samples[1], amplitude_time_samples[0], time_space)
+    magnitude_recovered = sinc_interpolation(amplitude_time_samples[1], amplitude_time_samples[0], time_space)   
+    if initialize:
+      fig.add_trace(go.Scatter( x=amplitude_time_samples[0], y=amplitude_time_samples[1],name="Samples", mode='markers'))
+      fig.add_trace(go.Line( x=f_time, y=f_magnitude,name="Original"))
+      fig.add_trace(go.Line( x=time_space, y=magnitude_recovered,name="Recovered"))
+      fig.update_layout(xaxis_title="Time(sec)",yaxis_title="Amplitude(V)",legend_title="SIGNALS",font=dict(size=18))
     
-    fig.add_trace(go.Line( x=time_space, y=magnitude_recovered,name="Recovered"))
-    fig.update_layout(xaxis_title="Time(sec)",yaxis_title="Amplitude(V)",legend_title=signal_name,font=dict(size=18,))
-    st.plotly_chart(fig, use_container_width=True)
-    
-    
+    if draw:
+      fig.add_trace(go.Scatter( x=amplitude_time_samples[0], y=amplitude_time_samples[1],name="Samples", mode='markers'))
+      fig.add_trace(go.Line( x=f_time, y=f_magnitude,name="Original"))
+      fig.add_trace(go.Line( x=time_space, y=magnitude_recovered,name="Recovered"))
+      fig.update_layout(xaxis_title="Time(sec)",yaxis_title="Amplitude(V)",legend_title="SIGNALS",font=dict(size=18))
+      
+    if not draw:
+       return (time_space,magnitude_recovered)
 #draw ends
+
 def save_fun():
-      #start save action
-     if save:        
-         if signal_name not in st.session_state["taps_names"]:
-             
-             st.session_state['taps_names'].append(signal_name)
-             st.session_state['count'] +=1
-             if file is None:
-                 st.session_state['taps'].append(tap(magnitude = generatedsignal,time=time_generated ,amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr,sampling_rate = sampling_rate, label=signal_name))
-             if file is not None:
-                 st.session_state['taps'].append(tap(magnitude=np.array(data[data.columns[1]]), time = np.array(data[data.columns[0]]),noise_check_box = noise_check_box, source="csv" ,snr=snr,sampling_rate = sampling_rate, label=signal_name))   
-         else:
-             st.markdown("this name exist, please change the name")              
+     
+      #start save action     
+     if signal_name not in st.session_state["taps_names"]:
+         st.session_state['taps_names'].append(signal_name)
+         st.session_state['count'] +=1
+         if file is None:
+             saved_signal_T,saved_signal_M= draw_signal(generatedsignal,time_generated, draw=False)
+             st.session_state['taps'].append(tap(magnitude = saved_signal_M,time=saved_signal_T ,amplitude=amplitude, frequency = freq,noise_check_box = noise_check_box, snr=snr, label=signal_name))
+         if file is not None:
+             saved_signal_T,saved_signal_M=draw_signal(data[data.columns[1]],data[data.columns[0]], draw=False)
+             st.session_state['taps'].append(tap(magnitude=saved_signal_M, time = saved_signal_T,noise_check_box = noise_check_box, source="csv" ,snr=snr, label=signal_name))  
+     else:
+         st.warning("This name exist, please change the name")              
      #end save action
      return
+
+def add_fun():
+    signals_sum=np.zeros(len(time_generated))
+    for tp in st.session_state["taps"]:
+                 signals_sum += tp.magnitude
+    return signals_sum
+    
 #Sidebar
 with st.sidebar:
-     if file is not None:
-         st.session_state["upload"] = True
+    #  if file is not None:
+        #  st.session_state["upload"] = True
 
-     if file is None:
-          st.session_state['upload'] = False
+    #  if file is None:
+        #   st.session_state['upload'] = False
 
-     st.markdown("<h2 style='text-align: left; color: white;'>To generate signal:</h2>", unsafe_allow_html=True)
-     amplitude=st.number_input('Enter Amplitude: ', step = 1, min_value=0, value=5,disabled=  st.session_state["upload"])
-     freq=st.number_input('Enter Frequence: ', step=1, min_value=0, value=20,disabled=  st.session_state["upload"])
-     sampling_rate=st.slider(label="R * fmax" ,min_value=0.25,max_value=10.0,step=0.25,value=2.0)
+
+     col3,col4=st.sidebar.columns(2)
      with st.container():
-                noise_check_box = st.checkbox("add noise")
+        freq=col3.number_input('Frequency ', step=1, min_value=1, value=20)
+        amplitude=col4.number_input('Amplitude ', step = 1, min_value=1, value=5)
+        generatedsignal=amplitude * np.sin(2 * np.pi * freq * time_generated)
+        
+        
+     samplingFreq_checkBox= st.checkbox("Sampling by Frequency")
+     if samplingFreq_checkBox:
+        sampling_method = st.slider("Sampling Frequency",min_value=2,max_value=800,value=2)
+        
+     else:
+        sampling_method=st.slider(label="Normalized Frequency" ,min_value=1,max_value=10,step=1,value=2)
+     with st.container():
+                st.markdown("<div style='margin-top:-12%; margin-buttom:-12%;'><hr color='white'></div>",unsafe_allow_html=True)
+                noise_check_box = st.checkbox("Add Noise")
                 if noise_check_box:
                     st.session_state["snr_state"] = False
                 else :
                     st.session_state["snr_state"] = True
-                snr = st.number_input("SNR", min_value=0, step=1,value=30,disabled=st.session_state["snr_state"])
+                snr = st.number_input("SNR", min_value=1, step=1,value=30,disabled=st.session_state["snr_state"])
+     st.markdown("<div style='margin-top:-12%; margin-buttom:-12%;'><hr color='white'></div>",unsafe_allow_html=True)
      signal_name = st.text_input("Name", value = "signal "+str(st.session_state["count"]))
-     save = st.button("Save")
-     
-
-       
+     col1,col2=st.sidebar.columns(2)
+     add = col1.button("Add")
                 
-
-
 if file is not None :
      data = pd.read_csv(file)
-     draw_signal(data[data.columns[1]],data[data.columns[0]])
-     if save:
+     generatedsignal=data[data.columns[1]]
+     if add:
          save_fun()
-
-
-     
-     
-if file is None :
-     time_generated = np.arange(0, 1, 1/2000)
-     generatedsignal = amplitude * np.sin(2 * np.pi * freq * time_generated)
-     if save:
-         save_fun()
-     # Compose 
-     generated_signals = []
-     generated_signals_names = []
-     #filtering only the signals that we generated, not the ones that has been uploaded
-     for tp in st.session_state['taps']:
-         if tp.source == "generate":
-             generated_signals.append(tp)
+         st.session_state['compose'] = True    
+     if st.session_state['compose']:
+          generatedsignal=add_fun()
           
-     if generated_signals :
-         for tp in generated_signals:
-             generated_signals_names.append(tp.label)
+     draw_signal(generatedsignal,data[data.columns[0]],sampling_method,draw=True)
+     recoveredsignal = draw_signal(data[data.columns[1]],data[data.columns[0]], draw = False)
+     downloadedsignal = pd.DataFrame({"time":recoveredsignal[0],"magnitude":recoveredsignal[1]})
      with st.sidebar:
-        st.markdown("<h2 style='text-align:left; color: white;'>To compose signals:</h2>", unsafe_allow_html=True)   
-        chosen_list = st.multiselect("Sum signals",generated_signals_names)
+         col2.download_button(
+            label="Download",
+            data=convert_df_to_csv(downloadedsignal),
+            file_name='your_signal.csv',
+            mime='text/csv',
+            )
+         
 
-     taps = []
-     #draw_signal(initialize=True)
-     fig1 = go.Figure()
-      
-     for label in chosen_list:
-         for i in range(len(st.session_state['taps_names'])):
-             if label == st.session_state['taps_names'][i]:
-                 taps.append(st.session_state['taps'][i])
-     for tp in taps:
-         fig1.add_trace(go.Line( x= tp.time, y= tp.magnitude,name=tp.label))
-     
-     time_x= np.arange(0,1,1/2000)
-     signals_sum=np.zeros(len(time_x))
-     for tp in taps:
-         if not len(signals_sum):
-             signals_sum = tp.magnitude
+if file is None :
+    st.session_state['table'].append(freq)
+    
+    if add:
+         save_fun()
+         st.session_state['table'].append(freq)
+         st.session_state['freq_mag'].append([freq,amplitude])
+         st.session_state['compose'] = True
+         
+    if st.session_state['compose']:
+         generatedsignal=add_fun()
+         
+                 
+    
+    chosen_list = st.sidebar.multiselect("Remove Signals",st.session_state['freq_mag'])
+    remove=st.sidebar.button("Remove")
+    if remove:
+         for item in chosen_list:
+             for tp in st.session_state['taps']:
+                 if item[0] == tp.frequency and item[1]==tp.amplitude:
+                      st.session_state["taps"].remove(tp)
              
-         else:
-             signals_sum += tp.magnitude
-                
-     if len(chosen_list) > 0:
-        fig1.add_trace(go.Line(x=time_x,y=signals_sum,name="Sum Of Signals"))
-        fig1.update_layout(xaxis_title="Time(sec)",yaxis_title="Amplitude(V)",legend_title="Compose",font=dict(size=18,))
-        st.plotly_chart(fig1, use_container_width=True)
+                      
+             for item2 in st.session_state['freq_mag']:
+                 if item == item2:
+                     st.session_state['freq_mag'].remove(item2)
+     
+     
+             for item3 in st.session_state['table']:
+                 if item[1] == item3:
+                     st.session_state['table'].remove(item3)        
+         st.experimental_rerun()
+              
+    draw_signal(generatedsignal,time_generated,sampling_method,initialize=True,draw=False)
+    recoveredsignal = draw_signal(generatedsignal,time_generated, draw = False)     
+    downloadedsignal = pd.DataFrame({"time":recoveredsignal[0],"magnitude":recoveredsignal[1]})
+    
+    with st.sidebar:        
+        col2.download_button(
+           label="Download",
+           data=convert_df_to_csv(downloadedsignal),
+           file_name='your_signal.csv',
+           mime='text/csv',
+           )
+# if compose_signal:
+#      if add:
+#          save_fun()
+#                   # Compose 
+#      generated_signals = []
+#      generated_signals_names = []
+#      for tp in st.session_state['taps']:
+#           generated_signals.append(tp)
+#      if generated_signals :
+#          for tp in generated_signals:
+#              generated_signals_names.append(tp.label)
+#      with st.sidebar:
+#          st.markdown("<div style='margin-top:-10%; margin-buttom:-50%;'><hr color='white'></div>",unsafe_allow_html=True)
+#          #compose_button = st.checkbox("Compose")
+#          chosen_list = st.multiselect("Remove Signals",generated_signals_names, disabled=not compose_signal)
+#      taps = []
+#      labels = []
+#      for label in chosen_list:
+#          
+#                  taps.append(st.session_state['taps'][i])
+#                  labels.append(label)
+#      signals_sum=np.zeros(len(time_generated))
+     
+#      if add:           
+#          draw_signal(signals_sum,time_generated,draw=True)
 
-     else:
-        draw_signal(generatedsignal,time_generated)
+#if add:
+#     save_fun()
+#     updated_signal=np.zeros(len(time_generated))
+#     for tp in st.session_state['taps']:
+#         updated_signal += tp.magnitude
+#     draw_signal(updated_signal,time_generated,sampling_method,draw=True) 
+     
 
+     
+     
+     
+     
+     
+     
+
+
+# if add:
+    # save_fun()
+# Compose 
+# generated_signals = []
+# generated_signals_names = []
+# signals_sum=np.zeros(len(time_x))
+# for tp in st.session_state['taps']:
+    #  signals_sum += tp.magnitude
+     
+# if generated_signals :
+#     for tp in generated_signals:
+#         generated_signals_names.append(tp.label)
+# with st.sidebar:
+#    st.markdown("<div style='margin-top:-10%; margin-buttom:-10%;'><hr color='white'></div>",unsafe_allow_html=True)
+#    chosen_list = st.multiselect("Compose Signals",generated_signals_names)
+#taps = []
+
+ 
+# for label in chosen_list:
+#     for i in range(len(st.session_state['taps_names'])):
+#         if label == st.session_state['taps_names'][i]:
+#             taps.append(st.session_state['taps'][i])
+
+
+# time_x= np.arange(0,1,1/2000)
+# signals_sum=np.zeros(len(time_x))
+# for tp in taps:
+#         signals_sum += tp.magnitude
+          
+# if len(chosen_list) > 0:
+#    fig = go.Figure()
+#    fig.add_trace(go.Line(x=time_x,y=signals_sum))
+#    fig.update_layout(xaxis_title="Time(sec)",yaxis_title="Amplitude(V)",title="Sum Of Signals",font=dict(size=18))
+ 
+   
+st.plotly_chart(fig, use_container_width=True)
+
+ 
+#
 st.markdown("""
         <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
+
             .css-18e3th9 {
                 flex: 1 1 0%;
                 width: 100%;
@@ -183,16 +300,13 @@ st.markdown("""
                 height: 4px;
                 width: 10px;
             }
-            *, ::before, ::after {
-                /* box-sizing: border-box; */
-            }
             .css-x8wxsk {
                 display: flex;
                 -webkit-box-align: center;
                 align-items: center;
                 padding: 0.3rem;
                 background-color: rgb(38, 39, 48);
-                border-radius: 0.3rem;
+                border-radius: 0.8rem;
                 color: rgb(250, 250, 250);
             }
             .css-1adrfps {
@@ -205,7 +319,7 @@ st.markdown("""
                 padding: .5rem .5rem;
                 position: relative;
                 transition: margin-left 300ms ease 0s, box-shadow 300ms ease 0s;
-                width: 21rem;
+                width: 50rem;
                 z-index: 1000021;
                 margin-left: 0px;
                 }
@@ -240,8 +354,49 @@ st.markdown("""
                     -moz-user-select: none;     /* Firefox all */
                     -ms-user-select: none;      /* IE 10+ */
                     user-select: none;          /* Likely future */ 
-
+            .css-16huue1 {
+                  font-size: 18px;
+                  color: rgb(250, 250, 250);
+                  margin-bottom: 7px;
+                  height: auto;
+                  min-height: 1.5rem;
+                  vertical-align: middle;
+                  display: flex;
+                  flex-direction: row;
+                  -moz-box-align: center;
+                  align-items: center;
             }
+            .css-3snfz0 {
+                   font-size: 18px;
+                   color: rgba(250, 250, 250, 0.4);
+                   margin-bottom: 7px;
+                   height: auto;
+                   min-height: 1.5rem;
+                   vertical-align: middle;
+                   display: flex;
+                   flex-direction: row;
+                   -moz-box-align: center;
+                   align-items: center;
+            }
+            .css-1oe6wy4 h2 {
+                  font-size: 1.5rem;
+                  font-weight: 600;
+            }
+ 
+        
+            .css-ocqkz7.e1tzin5v4 {
+                display: flex;
+                flex-wrap: wrap;
+                -webkit-box-flex: 1;
+                flex-grow: 1;
+                -webkit-box-align: stretch;
+                align-items: stretch;
+                gap: 1rem;
+                background-color:#484848;
+                align-items: center;
+                boarder-radius:2%;
+                }
+         
 
         </style>
         """, unsafe_allow_html=True)

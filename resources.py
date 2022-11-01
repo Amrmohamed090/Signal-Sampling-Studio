@@ -17,15 +17,17 @@ def add_noise(snr_dB, signal):
     noise_signal= signal+ noise
     return noise_signal
 
+
+
 def get_max_freq(magnitude=[],time=[]):
     sample_period = time[1]-time[0]
     n_samples = len(time)
     fft_magnitudes=np.abs(np.fft.fft(magnitude))
     fft_frequencies = np.fft.fftfreq(n_samples, sample_period)
     fft_clean_frequencies_array = []
-    for i in range(len(fft_frequencies)):
-        if fft_magnitudes[i] ** 2 > 100:
-            fft_clean_frequencies_array.append(fft_frequencies[i])
+    for freq in range(len(fft_frequencies)):
+        if fft_magnitudes[freq] > 100:
+            fft_clean_frequencies_array.append(fft_frequencies[freq])
     max_freq = max(fft_clean_frequencies_array)
     return max_freq
 
@@ -33,30 +35,31 @@ def get_max_freq(magnitude=[],time=[]):
 def round_to_nearest(n, m):
     return m * math.ceil(n / m)
 
-def take_samples(time, signal_magnitude, rate):
+def take_samples(time, signal_magnitude, sample_rate):
     step = time[1]-time[0]
     max_freq = get_max_freq(signal_magnitude, time)
-    T = 1/max_freq
+    period = 1/max_freq
     df = pd.DataFrame({"time":time, "Amplitude":signal_magnitude})
 
-    sample_rate = rate * max_freq
+    #sample_rate = rate * max_freq
     T_sample = 1/sample_rate
-    sample_t = np.arange(T/4, df['time'].iloc[-1], T_sample)
+    time_array = np.arange(period/4, df['time'].iloc[-1], T_sample)
 
     sample_amplitude = []
 
-    for v in sample_t:
-        sample_amplitude.append(df.iloc[int(round(round_to_nearest(v, step),10)/step)]['Amplitude'])
-
+    for value in time_array:
+        sample_amplitude.append(df.iloc[int(round(round_to_nearest(value, step),10)/step)]['Amplitude'])
         
-    return (sample_t  ,  sample_amplitude)
+    return (time_array  ,  sample_amplitude)
 
 def sinc_interpolation(input_magnitude, input_time, original_time):
-    T = input_time[1] - input_time[0]
+    period = input_time[1] - input_time[0]
     sincM = np.tile(original_time, (len(input_time), 1)) - \
         np.tile(input_time[:, np.newaxis], (1, len(original_time)))
-    output_magnitude = np.dot(input_magnitude, np.sinc(sincM/T))
+    output_magnitude = np.dot(input_magnitude, np.sinc(sincM/period))
     return output_magnitude
+
+    
 
 class tap:
     def __init__(self, magnitude=None, time=None, label=None, source = "generate" , amplitude = 5,frequency=20 ,sampling_rate=2, noise_check_box = False, snr=1000):
@@ -80,6 +83,6 @@ class tap:
         self.snr = snr
         self.amplitude = amplitude
         self.frequency = frequency
-
 def convert_df_to_csv(df):
     return df.to_csv(index=False).encode('utf-8')
+
